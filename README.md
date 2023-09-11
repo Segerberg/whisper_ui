@@ -24,3 +24,14 @@ celery -A app.celery worker --loglevel=info
 <pre>
 flask run
 </pre>
+
+
+## Env
+<pre>
+FLASK_APP=app.py
+FLASK_ENV=development
+SECRET_KEY='My secret string'
+CELERY_BROKER_URL='redis://default:redispw@localhost:55001'
+CELERY_RESULT_BACKEND='redis://default:redispw@localhost:55001'
+CORS = "*"
+</pre>
