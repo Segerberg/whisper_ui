@@ -1,0 +1,42 @@
+services:
+  whisper_ui:
+    image: whisper_ui
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      SECRET_KEY: My secret string
+      CELERY_BROKER_URL: redis://redis/1
+      CELERY_RESULT_BACKEND: redis://redis/1
+    command:
+      - bin/bash
+      - entrypoint.sh
+    volumes:
+      - ./data
+  worker:
+    image: whisper_ui
+      environment:
+        CELERY_BROKER_URL: redis://redis/1
+        CELERY_RESULT_BACKEND: redis://redis/1
+
+      volumes:
+        - ./data
+
+      depends_on:
+        - whisper_ui
+        - redis
+
+      command:
+        - celery -A app.celery worker --loglevel=info
+
+  redis:
+    image: 'redis'
+    networks:
+      - whisper_ui
+    ports:
+      - 6379:6379
+
+
+networks:
+  whisper_ui:
+    driver: bridge
