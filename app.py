@@ -59,15 +59,15 @@ def transcribe(self, id, translate, m):
     torch.cuda.is_available()
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-    model = whisper.load_model(m, device=DEVICE, download_root="data")
+    model = whisper.load_model(m, device=DEVICE, download_root="/data/models")
     transcript = Transcripts.query.get(id)
 
     if translate:
-        result = model.transcribe(f'uploads/{transcript.audiofile}', task="translate")
+        result = model.transcribe(f'/data/uploads/{transcript.audiofile}', task="translate")
     else:
-        result = model.transcribe(f'uploads/{transcript.audiofile}')
+        result = model.transcribe(f'data/uploads/{transcript.audiofile}')
 
-    writer = get_writer("all", str('data'))
+    writer = get_writer("all", str('/data/transcripts'))
     writer(json.loads(json.dumps(result)), str(transcript.audiofile))
 
     transcript.result = json.dumps(result)
@@ -120,7 +120,7 @@ async def index():
 
 
 async def save_uploaded_file(file):
-    upload_folder = 'uploads'
+    upload_folder = '/data/uploads'
     os.makedirs(upload_folder, exist_ok=True)
     safe_filename = secure_filename(file.filename)
     safe_filename = sanitize_filename(safe_filename)
@@ -296,12 +296,12 @@ async def delete_file(file):
     upload_folder = 'uploads'
     file_path = os.path.join(upload_folder, file)
     os.remove(file_path)
-    transcript_files = os.listdir('data')
+    transcript_files = os.listdir('/data/transcripts')
 
     for f in transcript_files:
         only_name = os.path.splitext(file)[0]
         if f.startswith(only_name):
-            os.remove(os.path.join('data', f))
+            os.remove(os.path.join('/data/transcripts', f))
 
 
 @app.route('/delete/<id>', methods=['POST'])
@@ -314,19 +314,7 @@ async def delete(id):
     return ''
 
 
-@app.route('/download/<id>', methods=['POST'])
-def download(id):
-    transcript = Transcripts.query.get(id)
-    ext = 'vtt'
-
-    writer = get_writer("vtt", str('data'))
-    writer(json.loads(transcript.result), str(transcript.audiofile))
-    print(transcript.audiofile)
-    return f'<div HX-Redirect="/download_file/{transcript.audiofile}"></div>'
-
-    # return send_file(path_or_file=f"data/{u}.{ext}", as_attachment=True, download_name=f"transcript.txt")
-
 
 @app.route('/download_file/<filename>', methods=['GET'])
 def download_file(filename):
-    return send_from_directory('data', filename, as_attachment=True)
+    return send_from_directory('data/transcripts', filename, as_attachment=True)
