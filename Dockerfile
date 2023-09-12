@@ -12,6 +12,8 @@ COPY app.py config.py entrypoint.sh requirements.txt ./
 RUN pip install -r requirements.txt
 
 RUN mkdir /data
+RUN mkdir /data/models
+RUN mkdir /data/transcripts
 
 ENV FLASK_APP app.py
 
