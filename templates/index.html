@@ -58,14 +58,14 @@
                     // Handle the success response here (e.g., show a success message)
                     console.log(response);
                 });
-
-                this.on("error", function (file, errorMessage) {
+                    this.on("complete", function(file) {
+                        this.removeFile(file);});
+            this.on("error", function (file, errorMessage) {
                     // Handle the error here (e.g., display an error message)
                     console.error(errorMessage);
                 });
             }
         };
-
 </script>
 
 </body>
