@@ -114,8 +114,9 @@ def get_audio_metadata(file_path):
 @app.route("/", methods=["GET"])
 async def index():
     transcripts = Transcripts.query.all()
+    allowed_filetypes = os.getenv("ALLOWED_FILETYPES") or ".mp3"
 
-    return render_template('index.html', transcripts=transcripts)
+    return render_template('index.html', transcripts=transcripts, allowed_filetypes=allowed_filetypes)
 
 
 async def save_uploaded_file(file):
@@ -218,9 +219,7 @@ def detail(id):
                     <br>
                     <a href="/download_file/{os.path.splitext(transcript.audiofile)[0]}.json">JSON</a>
                     </div>
-
-                </div>
-                
+                </div>         
              </div>'''
         else:
             transcript_section = f'''
