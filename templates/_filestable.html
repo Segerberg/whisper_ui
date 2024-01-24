@@ -1,0 +1,22 @@
+
+{% if transcripts|length == 0%}
+<tr>
+    <td colspan="2" style="text-align: center">No Files... upload some 👆</td>
+</tr>
+{% else %}
+{% for transcript in transcripts %}
+<tr>
+    <td><a style="color: inherit;" hx-get="/detail/{{transcript.id}}" hx-target="#detailView"
+           hx-swap="outerHTML" href="#">
+        <img src="/static/img/file_audio.svg" height="20px"> {{transcript.audiofile}}</a></td>
+
+    <td>
+        <button hx-get="/detail/{{transcript.id}}" hx-target="#detailView" hx-swap="outerHTML"
+                class="btn btn-sm btn-outline-secondary">view
+        </button>&nbsp;&nbsp;
+        <button hx-post="/delete/{{transcript.id}}" hx-target="#detailView" hx-swap="innerHTML" settle:1s
+        " hx-confirm="Delete?" class="btn btn-sm btn-outline-danger fade-me-out">delete</button>
+    </td>
+</tr>
+{% endfor %}
+{% endif %}

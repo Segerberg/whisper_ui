@@ -115,8 +115,11 @@ def get_audio_metadata(file_path):
 async def index():
     transcripts = Transcripts.query.all()
     allowed_filetypes = os.getenv("ALLOWED_FILETYPES") or ".mp3"
+    max_file_size = os.getenv("MAXFILESIZE") or 500
 
-    return render_template('index.html', transcripts=transcripts, allowed_filetypes=allowed_filetypes)
+    return render_template('index.html', transcripts=transcripts,
+                           allowed_filetypes=allowed_filetypes,
+                           max_file_size=max_file_size)
 
 
 async def save_uploaded_file(file):
@@ -262,32 +265,8 @@ def detail(id):
 
 @app.route('/filestable', methods=['GET'])
 def filestable():
-    delete_btn = '<button hx-get="/delete/{i.id}" hx-swap="outerHTML" class="btn btn-sm btn-outline-danger">delete</button>'
     transcripts = Transcripts.query.all()
-    if len(transcripts) == 0:
-        return '<div class="d-flex justify-content-center" style="margin-top:2em"><h5>No files</h5></div>'
-    tr_list = ['<tr><td>' \
-               f'<a style="color: inherit;" hx-get="/detail/{i.id}" hx-target="#detailView" hx-swap="outerHTML" href="#">'
-               '<img src="/static/img/file_audio.svg" height="20px"> ' + i.audiofile + f'</td>' \
-                                                                                       '</a>' \
-                                                                                       f'<td>' \
-                                                                                       f'<button hx-get="/detail/{i.id}" hx-target="#detailView" hx-swap="outerHTML" class="btn btn-sm btn-outline-secondary">view</button>&nbsp;&nbsp;' \
-                                                                                       f'<button hx-post="/delete/{i.id}" hx-target="#detailView" hx-swap="innerHTML"  settle:1s" hx-confirm="Delete?" class="btn btn-sm btn-outline-danger fade-me-out">delete</button>' \
-                                                                                       f'</td></tr>' for i in
-               transcripts]
-
-    tr = ''.join(tr_list)
-    html = f'''
-    <table class="table">
-    <thead>
-    <th>Audiofile</th>
-    <th>Actions</th>
-    </thead>
-    <tbody> 
-    {tr}
-    </tbody>
-    </table>'''
-    return html
+    return render_template('_filestable.html', transcripts=transcripts)
 
 
 async def delete_file(file):
