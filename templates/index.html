@@ -51,7 +51,7 @@
         // Initialize Dropzone3
         Dropzone.options.myDropzone = {
             paramName: "file", // The name that will be used to transfer the file
-            maxFilesize: 500, // MB
+            maxFilesize: {{max_file_size}},
             acceptedFiles: "{{allowed_filetypes}}", // Specify accepted file types
             init: function () {
                 this.on("success", function (file, response) {
