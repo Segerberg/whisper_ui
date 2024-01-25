@@ -5,14 +5,18 @@ import re
 import ffmpeg
 import torch
 import whisper
-from celery import Celery
-from flask import Flask, render_template, request, send_from_directory
+from celery import Celery, current_task
+from flask import Flask, render_template, request, send_from_directory, redirect, url_for
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
 from whisper.utils import get_writer
+import whisper.transcribe
+import sys
+import redis
 
+import tqdm
 from config import Config
 
 app = Flask(__name__)
@@ -20,6 +24,12 @@ app.config.from_object(Config)
 CORS(app)
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+
+def calculate_percentage(progress, total):
+    if total == 0:
+        return 0
+    return (progress / total) * 100
+
 
 
 def make_celery(app):
@@ -39,6 +49,7 @@ def make_celery(app):
 
 
 celery = make_celery(app)
+redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
 
 
 class Transcripts(db.Model):
@@ -51,20 +62,21 @@ class Transcripts(db.Model):
     duration = db.Column(db.String)
     transcribed = db.Column(db.Boolean)
     result = db.Column(db.Text)
+    progress = db.Column(db.Text)
 
 
 @celery.task(bind=True)
 def transcribe(self, id, translate, m):
     torch.cuda.is_available()
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-
     model = whisper.load_model(m, device=DEVICE, download_root="/data/models")
     transcript = Transcripts.query.get(id)
+    os.makedirs('/data/transcripts', exist_ok=True)
 
     if translate:
         result = model.transcribe(f'/data/uploads/{transcript.audiofile}', task="translate")
     else:
-        result = model.transcribe(f'data/uploads/{transcript.audiofile}')
+        result = model.transcribe(f'/data/uploads/{transcript.audiofile}')
 
     writer = get_writer("all", str('/data/transcripts'))
     writer(json.loads(json.dumps(result)), str(transcript.audiofile))
@@ -170,97 +182,12 @@ def transcribe_audio(id):
 @app.route('/detail/<id>', methods=['GET'])
 def detail(id):
     transcript = Transcripts.query.get(id)
-    btn = f'<button hx-swap="outerHTML" hx-post="/transcribe/{transcript.id}" class="btn btn-sm btn-outline-success float-end" style="margin-bottom:1em">Transcribe' \
-          f'</button>'
+    transcripts_file_path = None
+    if transcript.result:
+        transcripts_file_path = os.path.splitext(transcript.audiofile)[0]
 
-    transcript_section = f'''
-    <div id="transView" class="col-md-6">
-        <h2>Transcribe</h2>
-        <div class="card w-100" style="width: 18rem;">
-            <div class="card-header">
-            Options
-            </div>
-            <form>
-            <div id="transmodel" class="card-body">       
-            <h5>Model</h5>
-            <select name="model" class="form-select" aria-label="Default select example">
-                <option value="tiny">tiny</option>
-                <option selected value="base">base</option>
-                <option value="small">small</option>
-                <option value="medium">medium</option>
-                <option value="large">large</option>   
-            </select>
-            <h5>Options</h5>
-            <div class="form-check form-switch">
-            <input name="translate" class="form-check-input" type="checkbox" id="flexSwitchCheckDefault">
-           <label class="form-check-label" for="flexSwitchCheckDefault">Translate</label>
-           </div>
-            </div>
-            <div class="card-body">{btn}</div>
-            </form>
-        </div>
-     </div>'''
+    return render_template('detail.html', transcript=transcript, id=id, transcripts_file_path=transcripts_file_path)
 
-    if transcript.result or transcript.transcribed:
-        btn = f'<button hx-post="/transcribe/{transcript.id}" class="btn btn-sm btn-secondary" disabled>Transcribe</button>'
-        if transcript.result:
-            transcript_section = f'''
-            <div id="transView" class="col-md-6">
-                <h2>Transcript</h2>
-                <div class="card w-100" style="width: 18rem;">
-                    <div class="card-header">
-                    Download
-                    </div>
-                    <div class="card-body">
-                    <a href="/download_file/{os.path.splitext(transcript.audiofile)[0]}.vtt">VTT</a>
-                    <br>
-                    <a href="/download_file/{os.path.splitext(transcript.audiofile)[0]}.srt">SRT</a>
-                    <br>
-                    <a href="/download_file/{os.path.splitext(transcript.audiofile)[0]}.txt">TXT</a>
-                    <br>
-                    <a href="/download_file/{os.path.splitext(transcript.audiofile)[0]}.tsv">TSV</a>
-                    <br>
-                    <a href="/download_file/{os.path.splitext(transcript.audiofile)[0]}.json">JSON</a>
-                    </div>
-                </div>         
-             </div>'''
-        else:
-            transcript_section = f'''
-            <div id="transView" class="col-md-6">
-                <h2>Transcript</h2>
-                <div class="card w-100" style="width: 18rem;">
-                    <div class="card-header">
-                    Actions
-                    </div>
-                    
-                    <div class="card-body">
-                    <h3 hx-trigger="every 5s" hx-get="/detail/{id}" hx-target="#detailView" hx-swap="outerHTML">Working....</h3>
-                    <div class="d-flex justify-content-center"> <div class="lds-ripple" style="margin-top:2em"><div></div><div></div></div></div>
-                    </div>
-                    
-                </div>
-             </div>'''
-
-    return f'''
-    <div id="detailView" class="row">
-        <div class="col-md-4">
-        <h2>Metadata</h2>  
-            <div class="card" w-100">
-                <div class="card-header">
-                    <span class="badge bg-primary">{transcript.audiofile}</span>
-                </div>
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item"><strong>Duration:</strong> {transcript.duration}</li>
-                    <li class="list-group-item"><strong>Codec:</strong> {transcript.codec}</li>
-                    <li class="list-group-item"><strong>Encoder:</strong> {transcript.encoded_by} </li>
-                    <li class="list-group-item"><strong>Sample rate:</strong> {transcript.sample_rate} </li>
-                    <li class="list-group-item"><strong>Channels:</strong> {transcript.channels} </li>
-                </ul>
-            </div>
-        </div>
-        {transcript_section}
-        </div>   
-        '''
 
 
 @app.route('/filestable', methods=['GET'])
@@ -270,7 +197,7 @@ def filestable():
 
 
 async def delete_file(file):
-    upload_folder = 'uploads'
+    upload_folder = '/data/uploads'
     file_path = os.path.join(upload_folder, file)
     os.remove(file_path)
     transcript_files = os.listdir('/data/transcripts')
@@ -294,4 +221,4 @@ async def delete(id):
 
 @app.route('/download_file/<filename>', methods=['GET'])
 def download_file(filename):
-    return send_from_directory('data/transcripts', filename, as_attachment=True)
+    return send_from_directory('/data/transcripts', filename, as_attachment=True)

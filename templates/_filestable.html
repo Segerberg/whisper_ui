@@ -6,7 +6,7 @@
 {% else %}
 {% for transcript in transcripts %}
 <tr>
-    <td><a style="color: inherit;" hx-get="/detail/{{transcript.id}}" hx-target="#detailView"
+    <td><a style="color: inherit; text-decoration: none;" hx-get="/detail/{{transcript.id}}" hx-target="#detailView"
            hx-swap="outerHTML" href="#">
         <img src="/static/img/file_audio.svg" height="20px"> {{transcript.audiofile}}</a></td>
 

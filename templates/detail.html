@@ -1,0 +1,26 @@
+    <div id="detailView" class="row">
+        <div class="col-md-4">
+        <h2>Metadata</h2>
+            <div class="card" w-100">
+                <div class="card-header">
+                    <span class="badge bg-primary">{{transcript.audiofile}}</span>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"><strong>Duration:</strong> {{transcript.duration}}</li>
+                    <li class="list-group-item"><strong>Codec:</strong> {{transcript.codec}}</li>
+                    <li class="list-group-item"><strong>Encoder:</strong> {{transcript.encoded_by}} </li>
+                    <li class="list-group-item"><strong>Sample rate:</strong> {{transcript.sample_rate}} </li>
+                    <li class="list-group-item"><strong>Channels:</strong> {{transcript.channels}} </li>
+                </ul>
+            </div>
+        </div>
+        {% if transcript.result or transcript.transcribed %}
+            {% if transcript.result %}
+                {% include '_detail_transcript_result.html' %}
+            {% else %}
+                {% include '_detail_transcript_run.html' %}
+            {% endif %}
+            {% else %}
+        {% include '_detail_start.html' %}
+        {% endif %}
+        </div>

@@ -1,0 +1,27 @@
+    <div id="transView" class="col-md-6">
+        <h2>Transcribe</h2>
+        <div class="card w-100" style="width: 18rem;">
+            <div class="card-header">
+            Options
+            </div>
+            <form>
+            <div id="transmodel" class="card-body">
+            <h5>Model</h5>
+            <select name="model" class="form-select" aria-label="Default select example">
+                <option value="tiny">tiny</option>
+                <option selected value="base">base</option>
+                <option value="small">small</option>
+                <option value="medium">medium</option>
+                <option value="large">large</option>
+            </select>
+            <h5>Options</h5>
+            <div class="form-check form-switch">
+            <input name="translate" class="form-check-input" type="checkbox" id="flexSwitchCheckDefault">
+           <label class="form-check-label" for="flexSwitchCheckDefault">Translate</label>
+           </div>
+            </div>
+            <div class="card-body"><button hx-swap="outerHTML" hx-post="/transcribe/{{transcript.id}}" class="btn btn-sm btn-outline-success float-end" style="margin-bottom:1em">Transcribe</button></div>
+            </form>
+        </div>
+     </div>
+

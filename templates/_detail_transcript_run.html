@@ -1,0 +1,19 @@
+<div id="transView" class="col-md-6">
+    <h2>Transcript</h2>
+    <div class="card w-100" style="width: 18rem;">
+        <div class="card-header">
+            Actions
+        </div>
+
+        <div class="card-body">
+            <h3 hx-trigger="every 5s" hx-get="/detail/{{id}}" hx-target="#detailView" hx-swap="outerHTML">Working....</h3>
+            <div class="d-flex justify-content-center">
+                <div class="lds-ripple" style="margin-top:2em">
+                    <div></div>
+                    <div></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
