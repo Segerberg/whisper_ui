@@ -30,11 +30,12 @@
             <thead>
             <th>Audiofile</th>
             <th>Actions</th>
+            <th>Status</th>
             </thead>
             <tbody hx-get="/filestable" hx-trigger="every 2s" hx-swap="innerHTML">
-            {% if transcripts|length == 0%}i
+            {% if transcripts|length == 0%}
             <tr>
-                <td colspan="2" style="text-align: center">No Files... upload some 👆 </td>
+                <td colspan="3" style="text-align: center">No Files... upload some 👆 </td>
             </tr>
             {% else %}
             {% for transcript in transcripts %}
@@ -50,20 +51,12 @@
                     <button hx-get="/delete/{{transcript.id}}" hx-target="#detailView" hx-swap="innerHTML" settle:1s
                     " hx-confirm="Delete?" class="btn btn-sm btn-outline-danger fade-me-out">delete</button>
                 </td>
+                <td></td>
             </tr>
             {% endfor %}
             {% endif %}
             </tbody>
         </table>
-        <!--
-        <div hx-get="/filestable" hx-trigger="every 2s">
-            <div class="d-flex justify-content-center">
-                <div class="lds-ripple" style="margin-top:2em">
-                    <div></div>
-                    <div></div>
-                </div>
-            </div>
-        </div>-->
 
 
     </div>

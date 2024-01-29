@@ -1,8 +1,20 @@
-<div id="transView" class="col-md-6">
-    <h2>Transcript</h2>
+
+<div id="transVieew" class="col-md-4">
+    <h2>Info</h2>
     <div class="card w-100" style="width: 18rem;">
         <div class="card-header">
-            Download
+            Details
+        </div>
+        <div class="card-body">
+            Word count: {{transcript.word_count}}
+        </div>
+    </div>
+</div>
+<div id="transView" class="col-md-2">
+    <h2>Export</h2>
+    <div class="card w-100" style="width: 18rem;">
+        <div class="card-header">
+           Raw Files
         </div>
         <div class="card-body">
             <a href="/download_file/{{transcripts_file_path}}.vtt">VTT</a>

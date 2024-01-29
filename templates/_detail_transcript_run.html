@@ -2,18 +2,30 @@
     <h2>Transcript</h2>
     <div class="card w-100" style="width: 18rem;">
         <div class="card-header">
-            Actions
+            Progress
         </div>
 
         <div class="card-body">
-            <h3 hx-trigger="every 5s" hx-get="/detail/{{id}}" hx-target="#detailView" hx-swap="outerHTML">Working....</h3>
+            <h3 hx-trigger="every 1s" hx-get="/detail/{{id}}" hx-target="#detailView" hx-swap="outerHTML">
+                {% if task.state  == 'FAILURE' %} Fail ❌ {% else %}
+                {{task.state}} <img src=/static/img/pulse-rings-multiple.svg></h3>
+            {% endif %}
             <div class="d-flex justify-content-center">
-                <div class="lds-ripple" style="margin-top:2em">
-                    <div></div>
-                    <div></div>
+                {% if task.state == 'Transcribing' %}
+                <div class="progress" style="width: 80%; margin-top: 50px; margin-bottom: 50px;">
+                    <div class="progress-bar" role="progressbar" style="width: {{task.info['current']}}%;"
+                         aria-valuenow="{{task.info['current']}}" aria-valuemin="0" aria-valuemax="100">
+                        {{task.info['current']}}%
+                    </div>
                 </div>
+                {% endif %}
             </div>
         </div>
-
+        <div></div>
+        <div></div>
     </div>
+</div>
+</div>
+
+</div>
 </div>

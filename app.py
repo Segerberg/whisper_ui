@@ -6,7 +6,7 @@ import ffmpeg
 import torch
 import whisper
 from celery import Celery, current_task
-from flask import Flask, render_template, request, send_from_directory, redirect, url_for
+from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
@@ -15,6 +15,7 @@ from whisper.utils import get_writer
 import whisper.transcribe
 import sys
 import redis
+import subprocess
 
 import tqdm
 from config import Config
@@ -30,7 +31,9 @@ def calculate_percentage(progress, total):
         return 0
     return (progress / total) * 100
 
-
+def count_words(content):
+    words = content.split()
+    return len(words)
 
 def make_celery(app):
     celery = Celery(app.import_name, broker=app.config['CELERY_BROKER_URL'],
@@ -62,26 +65,42 @@ class Transcripts(db.Model):
     duration = db.Column(db.String)
     transcribed = db.Column(db.Boolean)
     result = db.Column(db.Text)
-    progress = db.Column(db.Text)
+    transcript_task = db.Column(db.Text)
+    word_count = db.Column(db.Text)
+
+
+
+@celery.task(bind=True)
+def get_ner(self, id):
+    transcript = Transcripts.query.get(id)
 
 
 @celery.task(bind=True)
 def transcribe(self, id, translate, m):
-    torch.cuda.is_available()
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    model = whisper.load_model(m, device=DEVICE, download_root="/data/models")
     transcript = Transcripts.query.get(id)
     os.makedirs('/data/transcripts', exist_ok=True)
-
     if translate:
-        result = model.transcribe(f'/data/uploads/{transcript.audiofile}', task="translate")
+        command = ['whisper-ctranslate2', '--model_dir', '/data/models', '--output_dir', '/data/transcripts', '--model',
+                   m, '--verbose', 'False','--task','translate', f'/data/uploads/{transcript.audiofile}']
     else:
-        result = model.transcribe(f'/data/uploads/{transcript.audiofile}')
+        command = ['whisper-ctranslate2', '--model_dir', '/data/models', '--output_dir', '/data/transcripts' , '--model', m, '--verbose','False',f'/data/uploads/{transcript.audiofile}']
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    self.update_state(state='Initializing', meta={'current': 0, 'total': 100})
+    for line in iter(process.stdout.readline, ''):
+        print(line)
+        status_match = re.search(r'\b(\d{1,3})%\|', line)
+        if status_match:
+            progress_percentage = int(status_match.group(1))
+            print(f"PROGRESS {progress_percentage}")
+            self.update_state(state='Transcribing', meta={'current': progress_percentage, 'total': 100})
+    process.stdout.close()
+    return_code = process.wait()
+    with open(f'/data/transcripts/{os.path.splitext(transcript.audiofile)[0]}.json') as result_file:
+        result = json.loads(result_file.read())
+        count = count_words(result['text'])
+        transcript.word_count = count
 
-    writer = get_writer("all", str('/data/transcripts'))
-    writer(json.loads(json.dumps(result)), str(transcript.audiofile))
-
-    transcript.result = json.dumps(result)
+        transcript.result = json.dumps(result)
     db.session.commit()
 
 
@@ -126,7 +145,7 @@ def get_audio_metadata(file_path):
 @app.route("/", methods=["GET"])
 async def index():
     transcripts = Transcripts.query.all()
-    allowed_filetypes = os.getenv("ALLOWED_FILETYPES") or ".mp3"
+    allowed_filetypes = os.getenv("ALLOWED_FILETYPES") or ".mp3, .mp4, .wav, .ogg, .flac, .m4a"
     max_file_size = os.getenv("MAXFILESIZE") or 500
 
     return render_template('index.html', transcripts=transcripts,
@@ -172,21 +191,40 @@ def transcribe_audio(id):
     translate = request.form.get('translate')
     model = request.form.get('model')
     transcript = Transcripts.query.get(id)
+
+    task = transcribe.delay(id, translate, model)
     transcript.transcribed = True
+    transcript.transcript_task = task.id
     db.session.commit()
-    transcribe.delay(id, translate, model)
-    btn = f'<img hx-trigger="every 5s" hx-get="/detail/{id}" hx-target="#detailView" hx-swap="outerHTML" src=/static/img/pulse-rings-multiple.svg class="float-end style="margin-bottom:2em">'
+    btn = f'<img hx-trigger="every 5s" hx-get="/detail/{id}" hx-target="#detailView" hx-swap="outerHTML" src=/static/img/pulse-rings-multiple.svg class="float-end style="margin-bottom:3em">'
     return btn
+
+@app.route('/check_task/<task_id>')
+def check_task(task_id):
+    task = transcribe.AsyncResult(task_id)
+    if task.state == 'Transcribing':
+        return render_template("_progress_bar.html", progress=task.info['current'])
+
+    elif task.state == 'SUCCESS':
+        return jsonify({'state': task.state, 'result': task.result})
+    else:
+        return jsonify({'state': task.state, 'progress': 0, 'total': 1})
 
 
 @app.route('/detail/<id>', methods=['GET'])
 def detail(id):
     transcript = Transcripts.query.get(id)
+    task_id = transcript.transcript_task
     transcripts_file_path = None
+    if task_id:
+        task = transcribe.AsyncResult(task_id)
+    else:
+        task = transcribe.AsyncResult('undefined')
+
     if transcript.result:
         transcripts_file_path = os.path.splitext(transcript.audiofile)[0]
 
-    return render_template('detail.html', transcript=transcript, id=id, transcripts_file_path=transcripts_file_path)
+    return render_template('detail.html', transcript=transcript, id=id, transcripts_file_path=transcripts_file_path, task=task)
 
 
 
