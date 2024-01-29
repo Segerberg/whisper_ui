@@ -14,6 +14,9 @@ flask db migrate
 flask db upgrade
 </pre>
 
+### Start redis
+docker run -p 6379:6379 --name redis -d redis --requirepass 'redispw'
+
 
 ### Start celery worker
 <pre>
@@ -34,4 +37,6 @@ SECRET_KEY='My secret string'
 CELERY_BROKER_URL='redis://default:redispw@localhost:55001'
 CELERY_RESULT_BACKEND='redis://default:redispw@localhost:55001'
 CORS = "*"
+ALLOWED_FILETYPES = ".flac, .ogg, .mkv, .mp3, .wav, .mp4"
+MAXFILESIZE = 500
 </pre>
