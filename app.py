@@ -1,23 +1,18 @@
 import json
 import os
 import re
-
 import ffmpeg
-import torch
-import whisper
-from celery import Celery, current_task
-from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify
+
+from celery import Celery
+from flask import Flask, render_template, request, send_from_directory, jsonify
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
-from whisper.utils import get_writer
-import whisper.transcribe
-import sys
 import redis
 import subprocess
 
-import tqdm
+
 from config import Config
 
 app = Flask(__name__)
@@ -85,9 +80,18 @@ def transcribe(self, id, translate, m):
     else:
         command = ['whisper-ctranslate2', '--model_dir', '/data/models', '--output_dir', '/data/transcripts' , '--model', m, '--verbose','False',f'/data/uploads/{transcript.audiofile}']
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    self.update_state(state='Initializing', meta={'current': 0, 'total': 100})
+    self.update_state(state='Initializing', meta={'message':'Warming up...'})
     for line in iter(process.stdout.readline, ''):
         print(line)
+        estimate_match = re.search(r'Estimating', line)
+        if estimate_match:
+            self.update_state(state='Initializing', meta={'message':'Estimating duration from bitrate'})
+
+        language_match = re.search(r"Detected language '(\w+)'", line)
+        if language_match:
+            detected_language = language_match.group(1)
+            self.update_state(state='Initializing', meta={f'message': f'Detected language: {detected_language}'})
+
         status_match = re.search(r'\b(\d{1,3})%\|', line)
         if status_match:
             progress_percentage = int(status_match.group(1))
@@ -198,6 +202,14 @@ def transcribe_audio(id):
     db.session.commit()
     btn = f'<img hx-trigger="every 5s" hx-get="/detail/{id}" hx-target="#detailView" hx-swap="outerHTML" src=/static/img/pulse-rings-multiple.svg class="float-end style="margin-bottom:3em">'
     return btn
+
+
+@app.route('/revoke/<id>', methods=['POST'])
+def revoke(id):
+    transcript = Transcripts.query.get(id)
+    result = celery.control.revoke(transcript.transcript_task, terminate=True)
+    return ''
+
 
 @app.route('/check_task/<task_id>')
 def check_task(task_id):

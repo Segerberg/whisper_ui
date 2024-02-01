@@ -7,8 +7,13 @@
 
         <div class="card-body">
             <h3 hx-trigger="every 1s" hx-get="/detail/{{id}}" hx-target="#detailView" hx-swap="outerHTML">
-                {% if task.state  == 'FAILURE' %} Fail ❌ {% else %}
+                {% if task.state  == 'FAILURE' %} Fail ❌
+                {% elif task.state == 'REVOKED' %} Revoked ❌
+                {% else %}
                 {{task.state}} <img src=/static/img/pulse-rings-multiple.svg></h3>
+                {% if task.state == 'Initializing' %}
+                <pre>{{task.info['message']}}</pre>
+                {% endif %}
             {% endif %}
             <div class="d-flex justify-content-center">
                 {% if task.state == 'Transcribing' %}
@@ -19,9 +24,16 @@
                     </div>
                 </div>
                 {% endif %}
+
             </div>
         </div>
-        <div></div>
+        <div>
+            {% if task.state != 'REVOKED' %}
+
+            <button hx-post="/revoke/{{transcript.id}}" hx-swap="innerHTML" settle:1s
+                    " hx-confirm="Stop?" class="btn btn-sm btn-outline-danger fade-me-out float-end" style="margin:1em">Revoke</button>
+        {% endif %}
+        </div>
         <div></div>
     </div>
 </div>
